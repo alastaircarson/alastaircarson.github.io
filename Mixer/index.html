@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mixer</title>
+    <style>
+        .vertical
+        {
+            width: 50px;
+            writing-mode: bt-lr; /* IE */
+            -webkit-appearance: slider-vertical; /* WebKit */
+        }
+    </style>
+
+    <script>
+        function getData(context, filename, title, onLoaded) {
+            var buffersource = context.createBufferSource();
+            var request = new XMLHttpRequest();
+
+            request.open('GET', filename, true);
+            request.responseType = 'arraybuffer';
+            request.onload = function() {
+            var audioData = request.response;
+
+            context.decodeAudioData(audioData, function(buffer) {
+                buffersource.buffer = buffer;
+                //buffersource.loop = false;
+                //buffersource.playbackRate.value = 1;
+                onLoaded(buffersource, title);
+                },
+                function(e){"Error with decoding audio data" + e.err});
+            }
+
+            request.send();
+        }
+
+        function fileLoaded(src, title){
+            var gainNode = audioCtx.createGain();
+            gainNode.connect(audioCtx.destination);
+            src.connect(gainNode);
+
+            var slider = document.createElement("input");
+            slider.type = "range";
+            slider.min = 0;
+            slider.max = 1;
+            slider.step = 0.1
+            slider.value = 1;
+            slider.className = "vertical";
+            slider.title = title;
+            if (slider.orient) slider.orient="vertical";
+            pControls.appendChild(slider);
+
+            gainNodes[loadedCount] = gainNode;
+            sources[loadedCount] = src;
+
+            slider.addEventListener('change', function() {
+                gainNode.gain.setValueAtTime(this.value, audioCtx.currentTime);
+            });
+
+            if(++loadedCount == loadCount)
+                for(i=0;i<loadCount;i++)
+                    sources[i].start();
+        };
+
+    </script>
+</head>
+<body>
+    <div id="controls">
+
+    </div>
+
+    <script>
+        var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        var gainNodes = [];
+        var sources = [];
+        var loadCount = 3;
+        var loadedCount = 0;
+        var pControls = document.getElementById("controls");
+
+        getData(audioCtx, 'Resources/Mirror_b.mp3', "Backing", fileLoaded);
+        getData(audioCtx, 'Resources/Mirror_v1.mp3', "Vocal 1", fileLoaded);
+        getData(audioCtx, 'Resources/Mirror_v2.mp3', "Vocal 2", fileLoaded);
+    </script>
+</body>
+</html>
