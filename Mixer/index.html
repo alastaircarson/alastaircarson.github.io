@@ -4,82 +4,223 @@
     <meta charset="UTF-8">
     <title>Mixer</title>
     <style>
-        .vertical
+        .trackDiv
+        {
+            width: 200px;
+            height: 100%;
+            float: left;
+            text-align: center;
+        }
+        .verticalSlider
         {
             width: 50px;
+            height: 90%;
             writing-mode: bt-lr; /* IE */
             -webkit-appearance: slider-vertical; /* WebKit */
         }
     </style>
-
     <script>
-        function getData(context, filename, title, onLoaded) {
-            var buffersource = context.createBufferSource();
-            var request = new XMLHttpRequest();
-
-            request.open('GET', filename, true);
-            request.responseType = 'arraybuffer';
-            request.onload = function() {
-            var audioData = request.response;
-
-            context.decodeAudioData(audioData, function(buffer) {
-                buffersource.buffer = buffer;
-                //buffersource.loop = false;
-                //buffersource.playbackRate.value = 1;
-                onLoaded(buffersource, title);
-                },
-                function(e){"Error with decoding audio data" + e.err});
+        class Buffer
+        {
+            constructor()
+            {
+                this.audioData = null;
             }
 
-            request.send();
+            loadSound(context, url, callback)
+            {
+                var request = new XMLHttpRequest();
+                request.open('GET', url, true);
+                request.responseType = 'arraybuffer';
+                let thisBuffer = this;
+                request.onload = function()
+                {
+                    context.decodeAudioData(request.response, function(buffer) {
+                        thisBuffer.audioData = buffer;
+                        callback();
+                    },
+                    function(e){"Error with decoding audio data" + e.err});
+                };
+                request.send();
+            }
+
+            getAudioData()
+            {
+                return this.audioData;
+            }
         }
 
-        function fileLoaded(src, title){
-            var gainNode = audioCtx.createGain();
-            gainNode.connect(audioCtx.destination);
-            src.connect(gainNode);
+        class Slider
+        {
+            constructor(context, title, sliderDiv, gainNode)
+            {
+		        var trackDiv = document.createElement("div");
+                trackDiv.className = "trackDiv";
+		        var titleDiv = document.createElement("div");
+                titleDiv.innerHTML = title;
+		        var slider = document.createElement("input");
+                slider.type = "range";
+                slider.min = 0;
+                slider.max = 1;
+                slider.step = 0.1
+                slider.value = 1;
+                slider.className = "verticalSlider";
+                slider.title = title;
+                if (slider.orient) slider.orient="vertical";
+                slider.addEventListener('change', function() {
+                    gainNode.gain.setValueAtTime(this.value, context.currentTime);
+                });
+		        sliderDiv.appendChild(trackDiv);
+		        trackDiv.appendChild(titleDiv);
+		        trackDiv.appendChild(slider);
+            }
+        }
 
-            var slider = document.createElement("input");
-            slider.type = "range";
-            slider.min = 0;
-            slider.max = 1;
-            slider.step = 0.1
-            slider.value = 1;
-            slider.className = "vertical";
-            slider.title = title;
-            if (slider.orient) slider.orient="vertical";
-            pControls.appendChild(slider);
+        class Song
+        {
+            constructor(context, songData, sliderDiv)
+            {
+                // Store the song data
+                this.songData = songData;
+                this.buffers = [];
+                this.sources = [];
+                this.gainNodes = [];
+                this.trackSliders = [];
+                this.started = false;
+                this.context = context;
+                this._load(sliderDiv);
+            }
 
-            gainNodes[loadedCount] = gainNode;
-            sources[loadedCount] = src;
+            _load(sliderDiv)
+            {
+                // Load
+		        var i;
+                var loaded = 0;
+                for(i=0;i < this.songData.tracks.length;i++)
+		        {
+                    this.gainNodes[i] = this.context.createGain();
+                    this.gainNodes[i].connect(this.context.destination);
 
-            slider.addEventListener('change', function() {
-                gainNode.gain.setValueAtTime(this.value, audioCtx.currentTime);
-            });
+                    this.trackSliders[i] = new Slider(
+                        this.context,
+                        this.songData.tracks[i].name,
+                        sliderDiv,
+                        this.gainNodes[i]);
 
-            if(++loadedCount == loadCount)
-                for(i=0;i<loadCount;i++)
-                    sources[i].start();
-        };
+                    this.buffers[i] = new Buffer();
+                    var thisSong = this;
+                    this.buffers[i].loadSound(
+                        this.context,
+                        this.songData.tracks[i].url,
+                        function(){
+                        if(++loaded == thisSong.songData.tracks.length)
+                            thisSong.play();
+                        });
+                }
+            }
 
+            play()
+            {
+                // Play from start
+                this.stop();
+                this._play(0);
+            }
+
+            stop()
+            {
+                // Stop
+                if(this.started) {
+                    for(var i=0;i<this.songData.tracks.length;i++)
+                    {
+                        this.sources[i].stop();
+                        this.sources[i] = null;
+                    }
+                    this.started = false;
+                }
+            }
+
+            playFrom(split)
+            {
+                // Play from split location
+                var secs = this.songData.splits[split].time;
+                this.stop();
+                this._play(secs);
+            }
+
+            _play(secs)
+            {
+                if(!this.started) {
+	                for(var i=0;i<this.songData.tracks.length;i++) {
+                        var source = this.context.createBufferSource();
+                        source.buffer = this.buffers[i].audioData;
+                        source.connect(this.gainNodes[i]);
+                        source.start(0,secs);
+                        this.sources[i] = source;
+                    }
+                    this.started = true;            
+                }
+            }
+        }
+
+        function onStart()
+        {
+            song.play();
+        }
+
+        function onStop()
+        {
+            song.stop();
+        }
+
+        function onChorus()
+        {
+            song.playFrom(1);
+        }
     </script>
 </head>
 <body>
     <div id="controls">
-
     </div>
+    <div style="clear:both"><br /><br /></div>
+    <button id="stop" onclick="onStop()">Stop</button>
+    <button id="start" onclick="onStart()">Start/Restart</button>
+    <button id="chorus" onclick="onChorus()">Chorus</button>
 
     <script>
         var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        var gainNodes = [];
-        var sources = [];
-        var loadCount = 3;
-        var loadedCount = 0;
-        var pControls = document.getElementById("controls");
 
-        getData(audioCtx, 'Resources/Mirror_b.mp3', "Backing", fileLoaded);
-        getData(audioCtx, 'Resources/Mirror_v1.mp3', "Vocal 1", fileLoaded);
-        getData(audioCtx, 'Resources/Mirror_v2.mp3', "Vocal 2", fileLoaded);
+        var songData = 
+            {
+            "name": "I'll Be Your Mirror",
+            "length": 120,
+            "tracks": [
+                    {
+                        "name": "Backing",
+                        "url": "Resources/Mirror_b.mp3",
+                    },
+                    {
+                        "name": "Vocal 1",
+                        "url": "Resources/Mirror_v1.mp3",
+                    },
+                    {
+                        "name": "Vocal 2",
+                        "url": "Resources/Mirror_v2.mp3",
+                    }
+                ],
+            splits: [
+                    {
+                        "name": "Start",
+                        "time": 0
+                    },
+                    {
+                        "name": "Chorus 1",
+                        "time": 45
+                    }
+                ]
+            }
+
+        var pControls = document.getElementById("controls");
+        var song = new Song(audioCtx, songData, pControls);
     </script>
 </body>
 </html>
