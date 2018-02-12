@@ -78,7 +78,7 @@
 
         class Song
         {
-            constructor(context, songData, sliderDiv)
+            constructor(context, songData, sliderDiv, splitsDiv)
             {
                 // Store the song data
                 this.songData = songData;
@@ -88,10 +88,19 @@
                 this.trackSliders = [];
                 this.started = false;
                 this.context = context;
-                this._load(sliderDiv);
+
+                while(sliderDiv.firstChild){
+                    sliderDiv.removeChild(sliderDiv.firstChild);
+                }
+
+                while(splitsDiv.firstChild){
+                    splitsDiv.removeChild(splitsDiv.firstChild);
+                }
+
+                this._load(sliderDiv, splitsDiv);
             }
 
-            _load(sliderDiv)
+            _load(sliderDiv, splitsDiv)
             {
                 // Load
 		        var i;
@@ -116,6 +125,17 @@
                         if(++loaded == thisSong.songData.tracks.length)
                             thisSong.play();
                         });
+                }
+
+                var thisSong = this;
+                for(i=0;i < this.songData.splits.length;i++)
+                {
+
+                    var splitbutton = document.createElement("button");
+                    splitbutton.textContent = this.songData.splits[i].name;
+                    splitbutton.pos = i;
+                    splitbutton.onclick = function(){ thisSong.playFrom(this.pos); };
+                    splitsDiv.appendChild(splitbutton);
                 }
             }
 
@@ -176,51 +196,80 @@
         {
             song.playFrom(1);
         }
+
+        function loadSongs()
+        {
+            var request = new XMLHttpRequest();
+            request.open('GET', "songs.json", true);
+            let thisBuffer = this;
+            request.onload = function()
+            {
+                songData = JSON.parse(request.response);
+                populateSongList();
+                //loadSong(0);
+            };
+            request.send();
+        }
+
+        function addToSelect(select, text, value)
+        {
+            var option = document.createElement("option");
+            option.text = text;
+            option.value = value;
+            select.appendChild(option);
+        }
+
+        function populateSongList()
+        {
+            var pSelect = document.getElementById("selSong");
+            addToSelect(pSelect, "Select Song","");
+            for(var i=0;i<songData.songs.length;i++)
+                addToSelect(pSelect, songData.songs[i].name,i);
+        }
+
+        function selectSong(select)
+        {
+            if(select.value != "")
+            {
+                var idx = parseInt(select.value);
+                pSongIO.style.display = "block";
+                loadSong(idx);
+            }
+            else
+            {
+                song.stop();
+                pSongIO.style.display = "none";
+            }
+        }
+
+        function loadSong(index)
+        {
+            song = new Song(audioCtx, songData.songs[index], pVolumeControls, pSplits);
+        }
+
+
     </script>
 </head>
 <body>
-    <div id="controls">
+    <select id="selSong" onchange="selectSong(this)"></select><br /><br />
+    <div id="songUI" style="display:none">
+        <div id="volumecontrols">
+        </div>
+        <div style="clear:both"><br /><br /></div>
+        <div>
+            <button id="stop" onclick="onStop()">Stop</button>
+            <button id="start" onclick="onStart()">Start</button>
+        </div>
+        <div id="splits"></div>
     </div>
-    <div style="clear:both"><br /><br /></div>
-    <button id="stop" onclick="onStop()">Stop</button>
-    <button id="start" onclick="onStart()">Start/Restart</button>
-    <button id="chorus" onclick="onChorus()">Chorus</button>
-
     <script>
         var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-        var songData = 
-            {
-            "name": "I'll Be Your Mirror",
-            "length": 120,
-            "tracks": [
-                    {
-                        "name": "Backing",
-                        "url": "Resources/Mirror_b.mp3",
-                    },
-                    {
-                        "name": "Vocal 1",
-                        "url": "Resources/Mirror_v1.mp3",
-                    },
-                    {
-                        "name": "Vocal 2",
-                        "url": "Resources/Mirror_v2.mp3",
-                    }
-                ],
-            splits: [
-                    {
-                        "name": "Start",
-                        "time": 0
-                    },
-                    {
-                        "name": "Chorus 1",
-                        "time": 45
-                    }
-                ]
-            }
-
-        var pControls = document.getElementById("controls");
-        var song = new Song(audioCtx, songData, pControls);
+        var pVolumeControls = document.getElementById("volumecontrols");
+        var pSplits = document.getElementById("splits");
+        var pSongIO = document.getElementById("songUI");
+        var songData;
+        var song;
+        loadSongs();
     </script>
 </body>
 </html>
