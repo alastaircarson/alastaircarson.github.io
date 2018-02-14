@@ -3,6 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>Mixer</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.0.0/css/bootstrap-slider.min.css" />
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.0.0/bootstrap-slider.min.js"></script>
     <style>
         .trackDiv
         {
@@ -17,6 +24,30 @@
             height: 90%;
             writing-mode: bt-lr; /* IE */
             -webkit-appearance: slider-vertical; /* WebKit */
+        }
+
+        #ex4Slider .slider-selection {
+        	background: #dddddd;
+        }
+
+        #ex4Slider .slider-track-high {
+        	background: #bbbbbb;
+        }
+
+        #ex4Slider .tooltip.in {
+        	opacity: 0.5;
+        }
+
+        #ex5Slider .slider-selection {
+        	background: #dddddd;
+        }
+
+        #ex5Slider .slider-track-high {
+        	background: #bbbbbb;
+        }
+
+        #ex5Slider .tooltip.in {
+        	opacity: 0.5;
         }
     </style>
     <script>
@@ -50,9 +81,9 @@
             }
         }
 
-        class Slider
+        class VolumeSlider
         {
-            constructor(context, title, sliderDiv, gainNode)
+            constructor(context, title, sliderDiv, gainNode, id)
             {
 		        var trackDiv = document.createElement("div");
                 trackDiv.className = "trackDiv";
@@ -62,7 +93,7 @@
                 slider.type = "range";
                 slider.min = 0;
                 slider.max = 1;
-                slider.step = 0.1
+                slider.step = 1;
                 slider.value = 1;
                 slider.className = "verticalSlider";
                 slider.title = title;
@@ -70,9 +101,30 @@
                 slider.addEventListener('change', function() {
                     gainNode.gain.setValueAtTime(this.value, context.currentTime);
                 });
+
+                var test = document.createElement("input");
+                test.id = "ex" + id
+                test.type = "text";
+
 		        sliderDiv.appendChild(trackDiv);
 		        trackDiv.appendChild(titleDiv);
-		        trackDiv.appendChild(slider);
+		        trackDiv.appendChild(test);
+
+                var slider2 = new Slider('#ex' + id, {
+                    tooltip_position:'left',
+                    id: "ex5Slider",
+                    min: 0,
+                    max: 10,
+                    step: 1,
+                    value: 8,
+                    orientation: "vertical",
+                    reversed: true
+                });
+
+                slider2.on("change", function(values) {
+                    gainNode.gain.setValueAtTime(values.newValue/10, context.currentTime);
+                    });
+
             }
         }
 
@@ -110,11 +162,12 @@
                     this.gainNodes[i] = this.context.createGain();
                     this.gainNodes[i].connect(this.context.destination);
 
-                    this.trackSliders[i] = new Slider(
+                    this.trackSliders[i] = new VolumeSlider(
                         this.context,
                         this.songData.tracks[i].name,
                         sliderDiv,
-                        this.gainNodes[i]);
+                        this.gainNodes[i],
+                        i);
 
                     this.buffers[i] = new Buffer();
                     var thisSong = this;
@@ -133,6 +186,8 @@
 
                     var splitbutton = document.createElement("button");
                     splitbutton.textContent = this.songData.splits[i].name;
+                    splitbutton.title = this.songData.splits[i].name;
+                    splitbutton.className = "btn btn-secondary";
                     splitbutton.pos = i;
                     splitbutton.onclick = function(){ thisSong.playFrom(this.pos); };
                     splitsDiv.appendChild(splitbutton);
@@ -182,21 +237,6 @@
             }
         }
 
-        function onStart()
-        {
-            song.play();
-        }
-
-        function onStop()
-        {
-            song.stop();
-        }
-
-        function onChorus()
-        {
-            song.playFrom(1);
-        }
-
         function loadSongs()
         {
             var request = new XMLHttpRequest();
@@ -206,61 +246,59 @@
             {
                 songData = JSON.parse(request.response);
                 populateSongList();
-                //loadSong(0);
             };
             request.send();
         }
 
-        function addToSelect(select, text, value)
+        function addToSelect(dd, text, value)
         {
-            var option = document.createElement("option");
-            option.text = text;
-            option.value = value;
-            select.appendChild(option);
+            var ddoption = document.createElement("a");
+            ddoption.className = "dropdown-item"
+            ddoption.innerHTML = text;
+            ddoption.href= "javascript:selectSong(" + value + ")";
+            dd.appendChild(ddoption);
         }
 
         function populateSongList()
         {
+            var pDD = document.getElementById("ddlist");
             var pSelect = document.getElementById("selSong");
-            addToSelect(pSelect, "Select Song","");
             for(var i=0;i<songData.songs.length;i++)
-                addToSelect(pSelect, songData.songs[i].name,i);
+                addToSelect(pDD, songData.songs[i].name,i);
         }
 
-        function selectSong(select)
+        function selectSong(index)
         {
-            if(select.value != "")
-            {
-                var idx = parseInt(select.value);
-                pSongIO.style.display = "block";
-                loadSong(idx);
-            }
-            else
-            {
-                song.stop();
-                pSongIO.style.display = "none";
-            }
+            pSongIO.style.display = "block";
+            loadSong(index);
         }
 
         function loadSong(index)
         {
             song = new Song(audioCtx, songData.songs[index], pVolumeControls, pSplits);
         }
-
-
     </script>
 </head>
 <body>
-    <select id="selSong" onchange="selectSong(this)"></select><br /><br />
-    <div id="songUI" style="display:none">
+    <!-- Select Song Dropdown -->
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Select Song</button>
+        <div id="ddlist" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+        </div>
+    </div>
+    <!-- Song Panel -->
+    <div id="songUI" class="jumbotron" style="display:none">
+        <!-- Holder for Volume Controls-->
         <div id="volumecontrols">
         </div>
         <div style="clear:both"><br /><br /></div>
+        <!-- Stop/Play butons -->
         <div>
-            <button id="stop" onclick="onStop()">Stop</button>
-            <button id="start" onclick="onStart()">Start</button>
+            <button id="stop" class="btn" onclick="song.stop()"><img src="Resources/media-stop.svg" title="Stop" width="20" height="20"></button>
+            <button id="start" class="btn" onclick="song.play()"><img src="Resources/media-play.svg" title="Play" width="20" height="20"></button>
         </div>
-        <div id="splits"></div>
+        <!-- Holder for Play From positions -->
+        <div id="splits" class="btn-group" role="group" aria-label="Play From"></div>
     </div>
     <script>
         var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
