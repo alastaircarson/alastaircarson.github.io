@@ -26,27 +26,32 @@
             -webkit-appearance: slider-vertical; /* WebKit */
         }
 
-        #ex4Slider .slider-selection {
+        #songTitle
+        {
+            float:left;
+            font-size: larger;
+            font-weight: bold;
+        }
+
+        .control-button
+        {
+            margin: 5px 5px 5px 5px;
+        }
+
+        #splits
+        {
+            margin: 5px 5px 5px 5px;
+        }
+
+        .slider-selection {
         	background: #dddddd;
         }
 
-        #ex4Slider .slider-track-high {
+        .slider-track-high {
         	background: #bbbbbb;
         }
 
-        #ex4Slider .tooltip.in {
-        	opacity: 0.5;
-        }
-
-        #ex5Slider .slider-selection {
-        	background: #dddddd;
-        }
-
-        #ex5Slider .slider-track-high {
-        	background: #bbbbbb;
-        }
-
-        #ex5Slider .tooltip.in {
+        .tooltip.in {
         	opacity: 0.5;
         }
     </style>
@@ -89,30 +94,18 @@
                 trackDiv.className = "trackDiv";
 		        var titleDiv = document.createElement("div");
                 titleDiv.innerHTML = title;
-		        var slider = document.createElement("input");
-                slider.type = "range";
-                slider.min = 0;
-                slider.max = 1;
-                slider.step = 1;
-                slider.value = 1;
-                slider.className = "verticalSlider";
-                slider.title = title;
-                if (slider.orient) slider.orient="vertical";
-                slider.addEventListener('change', function() {
-                    gainNode.gain.setValueAtTime(this.value, context.currentTime);
-                });
 
-                var test = document.createElement("input");
-                test.id = "ex" + id
-                test.type = "text";
+                var slider = document.createElement("input");
+                slider.id = "slider" + id
+                slider.type = "text";
 
 		        sliderDiv.appendChild(trackDiv);
 		        trackDiv.appendChild(titleDiv);
-		        trackDiv.appendChild(test);
+		        trackDiv.appendChild(slider);
 
-                var slider2 = new Slider('#ex' + id, {
+                var sliderObj = new Slider('#slider' + id, {
                     tooltip_position:'left',
-                    id: "ex5Slider",
+                    id: "slider5Slider",
                     min: 0,
                     max: 10,
                     step: 1,
@@ -121,7 +114,7 @@
                     reversed: true
                 });
 
-                slider2.on("change", function(values) {
+                sliderObj.on("change", function(values) {
                     gainNode.gain.setValueAtTime(values.newValue/10, context.currentTime);
                     });
 
@@ -275,7 +268,10 @@
 
         function loadSong(index)
         {
+            if(song) song.stop();
             song = new Song(audioCtx, songData.songs[index], pVolumeControls, pSplits);
+            var pTitle = document.getElementById("songTitle");
+            pTitle.innerHTML = songData.songs[index].name;
         }
     </script>
 </head>
@@ -287,18 +283,23 @@
         </div>
     </div>
     <!-- Song Panel -->
-    <div id="songUI" class="jumbotron" style="display:none">
-        <!-- Holder for Volume Controls-->
-        <div id="volumecontrols">
+    <div id="songUI" style="display:none">
+        <div class="card" >
+            <div id="songTitle" class="card-header"></div>
+            <div class="card-body">
+                <!-- Holder for Volume Controls-->
+                <div id="volumecontrols">
+                </div>
+                <div style="clear:both"><br /><br /></div>
+            </div>
         </div>
-        <div style="clear:both"><br /><br /></div>
-        <!-- Stop/Play butons -->
         <div>
-            <button id="stop" class="btn" onclick="song.stop()"><img src="Resources/media-stop.svg" title="Stop" width="20" height="20"></button>
-            <button id="start" class="btn" onclick="song.play()"><img src="Resources/media-play.svg" title="Play" width="20" height="20"></button>
+            <!-- Stop/Play buttons -->
+            <button id="stop" class="btn control-button" onclick="song.stop()"><img src="Resources/media-stop.svg" title="Stop" width="20" height="20"></button>
+            <button id="start" class="btn control-button" onclick="song.play()"><img src="Resources/media-play.svg" title="Play" width="20" height="20"></button>
+            <!-- Holder for Play From positions -->
+            <div id="splits" class="btn-group" role="group" aria-label="Play From"></div>
         </div>
-        <!-- Holder for Play From positions -->
-        <div id="splits" class="btn-group" role="group" aria-label="Play From"></div>
     </div>
     <script>
         var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
